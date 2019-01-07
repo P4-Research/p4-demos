@@ -1,2 +1,4 @@
 .idea/
 *.pyc
+*.p4i
+*.p4rt

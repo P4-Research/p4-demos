@@ -34,10 +34,13 @@ struct headers {
     ipv4_t       ipv4;
 }
 
-struct metadata {
-    /* empty */
+struct routing_metadata_t {
+    ip4Addr_t nhop_ipv4;
 }
 
+struct metadata {
+    routing_metadata_t routing;
+}
 
 parser RouterParser(packet_in packet,
                     out headers hdr,
@@ -71,7 +74,8 @@ control ingress(inout headers hdr,
                 inout metadata meta,
                 inout standard_metadata_t standard_metadata) {
 
-    action ipv4_forward(egressSpec_t port) {
+    action ipv4_forward(ip4Addr_t nextHop, egressSpec_t port) {
+        meta.routing.nhop_ipv4 = nextHop;
         standard_metadata.egress_spec = port;
         hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
     }
@@ -100,25 +104,44 @@ control egress(inout headers hdr,
                inout metadata meta,
                inout standard_metadata_t standard_metadata) {
 
-    action rewrite_mac(macAddr_t dstAddr) {
-        hdr.ethernet.srcAddr = hdr.ethernet.dstAddr;
+    action set_dmac(macAddr_t dstAddr) {
         hdr.ethernet.dstAddr = dstAddr;
+    }
+
+    action set_smac(macAddr_t mac) {
+        hdr.ethernet.srcAddr = mac;
     }
 
     table switching_table {
         key = {
-            hdr.ipv4.dstAddr: exact;
+            meta.routing.nhop_ipv4 : exact;
         }
         actions = {
-            rewrite_mac;
+            set_dmac;
             drop;
             NoAction;
         }
         default_action = NoAction();
     }
 
+    table mac_rewriting_table {
+
+        key = {
+            standard_metadata.egress_spec: exact;
+        }
+
+        actions = {
+            set_smac;
+            drop;
+            NoAction;
+        }
+
+        default_action = drop();
+    }
+
     apply {
         switching_table.apply();
+        mac_rewriting_table.apply();
     }
 
 }

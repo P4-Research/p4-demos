@@ -58,6 +58,13 @@
         ["srcAddr", 32, false],
         ["dstAddr", 32, false]
       ]
+    },
+    {
+      "name" : "routing_metadata_t",
+      "id" : 4,
+      "fields" : [
+        ["nhop_ipv4", 32, false]
+      ]
     }
   ],
   "headers" : [
@@ -87,6 +94,13 @@
       "id" : 3,
       "header_type" : "ipv4_t",
       "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "userMetadata.routing",
+      "id" : 4,
+      "header_type" : "routing_metadata_t",
+      "metadata" : true,
       "pi_omit" : true
     }
   ],
@@ -170,7 +184,7 @@
       "id" : 0,
       "source_info" : {
         "filename" : "router.p4",
-        "line" : 126,
+        "line" : 149,
         "column" : 8,
         "source_fragment" : "deparser"
       },
@@ -186,7 +200,7 @@
       "id" : 0,
       "source_info" : {
         "filename" : "router.p4",
-        "line" : 137,
+        "line" : 160,
         "column" : 1,
         "source_fragment" : "update_checksum( ..."
       },
@@ -251,7 +265,7 @@
           "parameters" : [],
           "source_info" : {
             "filename" : "router.p4",
-            "line" : 67,
+            "line" : 70,
             "column" : 4,
             "source_fragment" : "mark_to_drop()"
           }
@@ -269,6 +283,10 @@
       "id" : 2,
       "runtime_data" : [
         {
+          "name" : "nextHop",
+          "bitwidth" : 32
+        },
+        {
           "name" : "port",
           "bitwidth" : 9
         }
@@ -279,7 +297,7 @@
           "parameters" : [
             {
               "type" : "field",
-              "value" : ["standard_metadata", "egress_spec"]
+              "value" : ["userMetadata.routing", "nhop_ipv4"]
             },
             {
               "type" : "runtime_data",
@@ -288,7 +306,26 @@
           ],
           "source_info" : {
             "filename" : "router.p4",
-            "line" : 75,
+            "line" : 78,
+            "column" : 8,
+            "source_fragment" : "meta.routing.nhop_ipv4 = nextHop"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["standard_metadata", "egress_spec"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 1
+            }
+          ],
+          "source_info" : {
+            "filename" : "router.p4",
+            "line" : 79,
             "column" : 8,
             "source_fragment" : "standard_metadata.egress_spec = port"
           }
@@ -330,7 +367,7 @@
           ],
           "source_info" : {
             "filename" : "router.p4",
-            "line" : 76,
+            "line" : 80,
             "column" : 8,
             "source_fragment" : "hdr.ipv4.ttl = hdr.ipv4.ttl - 1"
           }
@@ -347,7 +384,24 @@
           "parameters" : [],
           "source_info" : {
             "filename" : "router.p4",
-            "line" : 67,
+            "line" : 70,
+            "column" : 4,
+            "source_fragment" : "mark_to_drop()"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "drop",
+      "id" : 4,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "drop",
+          "parameters" : [],
+          "source_info" : {
+            "filename" : "router.p4",
+            "line" : 70,
             "column" : 4,
             "source_fragment" : "mark_to_drop()"
           }
@@ -356,13 +410,19 @@
     },
     {
       "name" : "NoAction",
-      "id" : 4,
+      "id" : 5,
       "runtime_data" : [],
       "primitives" : []
     },
     {
-      "name" : "egress.rewrite_mac",
-      "id" : 5,
+      "name" : "NoAction",
+      "id" : 6,
+      "runtime_data" : [],
+      "primitives" : []
+    },
+    {
+      "name" : "egress.set_dmac",
+      "id" : 7,
       "runtime_data" : [
         {
           "name" : "dstAddr",
@@ -370,25 +430,6 @@
         }
       ],
       "primitives" : [
-        {
-          "op" : "assign",
-          "parameters" : [
-            {
-              "type" : "field",
-              "value" : ["ethernet", "srcAddr"]
-            },
-            {
-              "type" : "field",
-              "value" : ["ethernet", "dstAddr"]
-            }
-          ],
-          "source_info" : {
-            "filename" : "router.p4",
-            "line" : 104,
-            "column" : 8,
-            "source_fragment" : "hdr.ethernet.srcAddr = hdr.ethernet.dstAddr"
-          }
-        },
         {
           "op" : "assign",
           "parameters" : [
@@ -403,9 +444,40 @@
           ],
           "source_info" : {
             "filename" : "router.p4",
-            "line" : 105,
+            "line" : 108,
             "column" : 8,
             "source_fragment" : "hdr.ethernet.dstAddr = dstAddr"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "egress.set_smac",
+      "id" : 8,
+      "runtime_data" : [
+        {
+          "name" : "mac",
+          "bitwidth" : 48
+        }
+      ],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["ethernet", "srcAddr"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 0
+            }
+          ],
+          "source_info" : {
+            "filename" : "router.p4",
+            "line" : 112,
+            "column" : 8,
+            "source_fragment" : "hdr.ethernet.srcAddr = mac"
           }
         }
       ]
@@ -417,7 +489,7 @@
       "id" : 0,
       "source_info" : {
         "filename" : "router.p4",
-        "line" : 70,
+        "line" : 73,
         "column" : 8,
         "source_fragment" : "ingress"
       },
@@ -428,7 +500,7 @@
           "id" : 0,
           "source_info" : {
             "filename" : "router.p4",
-            "line" : 79,
+            "line" : 83,
             "column" : 10,
             "source_fragment" : "routing_table"
           },
@@ -469,7 +541,7 @@
           "id" : 0,
           "source_info" : {
             "filename" : "router.p4",
-            "line" : 92,
+            "line" : 96,
             "column" : 12,
             "source_fragment" : "hdr.ipv4.isValid()"
           },
@@ -494,7 +566,7 @@
       "id" : 1,
       "source_info" : {
         "filename" : "router.p4",
-        "line" : 99,
+        "line" : 103,
         "column" : 8,
         "source_fragment" : "egress"
       },
@@ -505,15 +577,15 @@
           "id" : 1,
           "source_info" : {
             "filename" : "router.p4",
-            "line" : 108,
+            "line" : 115,
             "column" : 10,
             "source_fragment" : "switching_table"
           },
           "key" : [
             {
               "match_type" : "exact",
-              "name" : "hdr.ipv4.dstAddr",
-              "target" : ["ipv4", "dstAddr"],
+              "name" : "meta.routing.nhop_ipv4",
+              "target" : ["userMetadata.routing", "nhop_ipv4"],
               "mask" : null
             }
           ],
@@ -523,11 +595,49 @@
           "with_counters" : false,
           "support_timeout" : false,
           "direct_meters" : null,
-          "action_ids" : [5, 3, 4],
-          "actions" : ["egress.rewrite_mac", "drop", "NoAction"],
+          "action_ids" : [7, 3, 5],
+          "actions" : ["egress.set_dmac", "drop", "NoAction"],
+          "base_default_next" : "egress.mac_rewriting_table",
+          "next_tables" : {
+            "egress.set_dmac" : "egress.mac_rewriting_table",
+            "drop" : "egress.mac_rewriting_table",
+            "NoAction" : "egress.mac_rewriting_table"
+          },
+          "default_entry" : {
+            "action_id" : 5,
+            "action_const" : false,
+            "action_data" : [],
+            "action_entry_const" : false
+          }
+        },
+        {
+          "name" : "egress.mac_rewriting_table",
+          "id" : 2,
+          "source_info" : {
+            "filename" : "router.p4",
+            "line" : 127,
+            "column" : 10,
+            "source_fragment" : "mac_rewriting_table"
+          },
+          "key" : [
+            {
+              "match_type" : "exact",
+              "name" : "standard_metadata.egress_spec",
+              "target" : ["standard_metadata", "egress_spec"],
+              "mask" : null
+            }
+          ],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [8, 4, 6],
+          "actions" : ["egress.set_smac", "drop", "NoAction"],
           "base_default_next" : null,
           "next_tables" : {
-            "egress.rewrite_mac" : null,
+            "egress.set_smac" : null,
             "drop" : null,
             "NoAction" : null
           },
