@@ -598,8 +598,8 @@
           "key" : [
             {
               "match_type" : "exact",
-              "name" : "standard_metadata.egress_spec",
-              "target" : ["standard_metadata", "egress_spec"],
+              "name" : "standard_metadata.egress_port",
+              "target" : ["standard_metadata", "egress_port"],
               "mask" : null
             }
           ],

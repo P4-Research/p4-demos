@@ -2,7 +2,7 @@
 #include <core.p4>
 #include <v1model.p4>
 
-const bit<16> TYPE_IPV4 = 0x800;
+const bit<16> TYPE_IPV4 = 0x0800;
 
 typedef bit<9>  egressSpec_t;
 typedef bit<48> macAddr_t;
@@ -125,7 +125,7 @@ control egress(inout headers hdr,
     table mac_rewriting_table {
 
         key = {
-            standard_metadata.egress_spec: exact;
+            standard_metadata.egress_port: exact;
         }
 
         actions = {
