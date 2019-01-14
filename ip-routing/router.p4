@@ -93,9 +93,7 @@ control ingress(inout headers hdr,
     }
 
     apply {
-        if (hdr.ipv4.isValid()) {
-            routing_table.apply();
-        }
+        routing_table.apply();
     }
 
 }

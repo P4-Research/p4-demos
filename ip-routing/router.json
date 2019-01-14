@@ -184,7 +184,7 @@
       "id" : 0,
       "source_info" : {
         "filename" : "router.p4",
-        "line" : 149,
+        "line" : 147,
         "column" : 8,
         "source_fragment" : "deparser"
       },
@@ -200,7 +200,7 @@
       "id" : 0,
       "source_info" : {
         "filename" : "router.p4",
-        "line" : 160,
+        "line" : 158,
         "column" : 1,
         "source_fragment" : "update_checksum( ..."
       },
@@ -444,7 +444,7 @@
           ],
           "source_info" : {
             "filename" : "router.p4",
-            "line" : 108,
+            "line" : 106,
             "column" : 8,
             "source_fragment" : "hdr.ethernet.dstAddr = dstAddr"
           }
@@ -475,7 +475,7 @@
           ],
           "source_info" : {
             "filename" : "router.p4",
-            "line" : 112,
+            "line" : 110,
             "column" : 8,
             "source_fragment" : "hdr.ethernet.srcAddr = mac"
           }
@@ -493,7 +493,7 @@
         "column" : 8,
         "source_fragment" : "ingress"
       },
-      "init_table" : "node_2",
+      "init_table" : "ingress.routing_table",
       "tables" : [
         {
           "name" : "ingress.routing_table",
@@ -535,38 +535,14 @@
         }
       ],
       "action_profiles" : [],
-      "conditionals" : [
-        {
-          "name" : "node_2",
-          "id" : 0,
-          "source_info" : {
-            "filename" : "router.p4",
-            "line" : 96,
-            "column" : 12,
-            "source_fragment" : "hdr.ipv4.isValid()"
-          },
-          "expression" : {
-            "type" : "expression",
-            "value" : {
-              "op" : "d2b",
-              "left" : null,
-              "right" : {
-                "type" : "field",
-                "value" : ["ipv4", "$valid$"]
-              }
-            }
-          },
-          "false_next" : null,
-          "true_next" : "ingress.routing_table"
-        }
-      ]
+      "conditionals" : []
     },
     {
       "name" : "egress",
       "id" : 1,
       "source_info" : {
         "filename" : "router.p4",
-        "line" : 103,
+        "line" : 101,
         "column" : 8,
         "source_fragment" : "egress"
       },
@@ -577,7 +553,7 @@
           "id" : 1,
           "source_info" : {
             "filename" : "router.p4",
-            "line" : 115,
+            "line" : 113,
             "column" : 10,
             "source_fragment" : "switching_table"
           },
@@ -615,7 +591,7 @@
           "id" : 2,
           "source_info" : {
             "filename" : "router.p4",
-            "line" : 127,
+            "line" : 125,
             "column" : 10,
             "source_fragment" : "mac_rewriting_table"
           },
