@@ -24,7 +24,8 @@ class DemoTopo(Topo):
         s1 = self.addSwitch('s1',
                             sw_path=sw_path,
                             json_path=json_path,
-                            thrift_port=9090)
+                            thrift_port=9090,
+                            enable_debugger=True)
         s2 = self.addSwitch('s2',
                             sw_path=sw_path,
                             json_path=json_path,
