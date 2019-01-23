@@ -2,6 +2,11 @@
 #include <core.p4>
 #include <v1model.p4>
 
+
+###########################################################
+######################## CONSTANTS ########################
+###########################################################
+
 const bit<16> TYPE_IPV4 = 0x0800;
 
 ###########################################################
@@ -49,6 +54,21 @@ header_type udp_t {
 ######################### PARSER ##########################
 ###########################################################
 
-parser ethernet {
-    extract
+parser start {
+    return parse_ethernet;
+    }
+
+parser parse_ethernet {
+    extract(ethernet);
+        return select(latest.ethertype) {
+            TYPE_IPV4:  parse_ipv4;
+            default:    ingress;
+    }
+}
+
+parser parse_ipv4 {
+    extract(ipv4);
+        return select(latest.ipv4) {
+            default:    ingress;
+        }
 }
