@@ -1,13 +1,11 @@
 ######################### P4_14 ###########################
-#include <core.p4>
-#include <v1model.p4>
 
 
 ###########################################################
 ######################## CONSTANTS ########################
 ###########################################################
 
-const bit<16> TYPE_IPV4 = 0x0800;
+#define TYPE_IPV4 = 0x0800;
 
 ###########################################################
 ######################### HEADERS #########################
@@ -20,6 +18,7 @@ header_type ethernet_t  {
         etherType       :16;
     {
 }
+header ethernet_t ethernet
 
 header_type ipv4_t {
     fields {
@@ -38,6 +37,7 @@ header_type ipv4_t {
         dstAddr         :32;
     }
 }
+header ipv4_t ipv4
 
 header_type udp_t {
     fields {
@@ -47,6 +47,7 @@ header_type udp_t {
         checksum        :16;
     }
 }
+header udp_t udp
 
 header_type tcp_t {
     fields {
@@ -61,14 +62,24 @@ header_type tcp_t {
         checksum        :16;
         urgentPointer   :16;
     }
-
 }
+header tcp_t tcp
 
 header_type gtp_t {
     fields {
+        version         :3;
+        ptFlag          :1; #protocol type - 1 when GTP and 0 when GTP'
+        spare           :1; #shall be set to 0
+        extHdrFlag      :1;
+        seqNumberFlag   :1;
+        npduFlag        :1;
+        msgType         :8;
+        length          :16;
+        tunnelEndID     :32;
 
     }
 }
+header gtp_t gtp
 
 ###########################################################
 ######################### PARSER ##########################
@@ -80,7 +91,7 @@ parser start {
 
 parser parse_ethernet {
     extract(ethernet);
-        return select(latest.ethertype) {
+        return select(latest.etherType) {
             TYPE_IPV4:  parse_ipv4;
             default:    ingress;
     }
