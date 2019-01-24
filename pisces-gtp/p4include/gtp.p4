@@ -76,7 +76,6 @@ header_type gtp_t {
         msgType         :8;
         length          :16;
         tunnelEndID     :32;
-
     }
 }
 header gtp_t gtp
