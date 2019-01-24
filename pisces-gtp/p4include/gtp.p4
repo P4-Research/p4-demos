@@ -36,8 +36,6 @@ header_type ipv4_t {
         hdrChecksum     :16;
         srcAddr         :32;
         dstAddr         :32;
-        options         :24;
-        padding         :8;
     }
 }
 
@@ -47,6 +45,28 @@ header_type udp_t {
         dstPort         :16;
         length          :16;
         checksum        :16;
+    }
+}
+
+header_type tcp_t {
+    fields {
+        srcPort         :16;
+        dstPort         :16;
+        seqNumber       :32;
+        ackNumber       :32;
+        dataOffset      :4;
+        reserved        :6;
+        ctrl            :6;
+        window          :16;
+        checksum        :16;
+        urgentPointer   :16;
+    }
+
+}
+
+header_type gtp_t {
+    fields {
+
     }
 }
 
