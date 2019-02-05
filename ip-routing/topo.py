@@ -68,7 +68,7 @@ def main():
     s1.setMAC('00:00:00:00:01:01', intf = 's1-eth1')
     s1.setIP('192.168.1.1/24', intf = 's1-eth2')
     s1.setMAC('00:00:00:00:01:02', intf='s1-eth2')
-    s1.setIP('192.168.3.254/254', intf = 's1-eth3')
+    s1.setIP('192.168.3.254/24', intf = 's1-eth3')
     s1.setMAC('00:00:00:00:01:03', intf='s1-eth3')
 
     s2 = net.get('s2')
