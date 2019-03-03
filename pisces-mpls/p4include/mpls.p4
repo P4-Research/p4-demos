@@ -204,13 +204,3 @@ control ingress {
     }
     apply(switching_table);
 }
-
-
-
-
-
-
-
-
-
-
