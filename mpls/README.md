@@ -33,7 +33,9 @@ If you want to test the demo in practice check the mpls.p4 program out and repro
 
 ### Network topology ###
 
-TBD
+<p align="center">
+  <img src="images/mpls.png" />
+</p>
 
 ### User guide ###
 
