@@ -1,0 +1,999 @@
+{
+  "header_types" : [
+    {
+      "name" : "scalars_0",
+      "id" : 0,
+      "fields" : []
+    },
+    {
+      "name" : "standard_metadata",
+      "id" : 1,
+      "fields" : [
+        ["ingress_port", 9, false],
+        ["egress_spec", 9, false],
+        ["egress_port", 9, false],
+        ["clone_spec", 32, false],
+        ["instance_type", 32, false],
+        ["drop", 1, false],
+        ["recirculate_port", 16, false],
+        ["packet_length", 32, false],
+        ["checksum_error", 1, false],
+        ["_padding", 3, false]
+      ]
+    },
+    {
+      "name" : "ethernet_t",
+      "id" : 2,
+      "fields" : [
+        ["dstAddr", 48, false],
+        ["srcAddr", 48, false],
+        ["etherType", 16, false]
+      ]
+    },
+    {
+      "name" : "ipv4_t",
+      "id" : 3,
+      "fields" : [
+        ["version", 4, false],
+        ["ihl", 4, false],
+        ["diffserv", 8, false],
+        ["totalLen", 16, false],
+        ["identification", 16, false],
+        ["flags", 3, false],
+        ["fragOffset", 13, false],
+        ["ttl", 8, false],
+        ["protocol", 8, false],
+        ["hdrChecksum", 16, false],
+        ["srcAddr", 32, false],
+        ["dstAddr", 32, false]
+      ]
+    },
+    {
+      "name" : "mpls_t",
+      "id" : 4,
+      "fields" : [
+        ["label", 20, false],
+        ["tc", 3, false],
+        ["bos", 1, false],
+        ["ttl", 8, false]
+      ]
+    },
+    {
+      "name" : "udp_t",
+      "id" : 5,
+      "fields" : [
+        ["srcPort", 16, false],
+        ["dstPort", 16, false],
+        ["length_", 16, false],
+        ["checksum", 16, false]
+      ]
+    }
+  ],
+  "headers" : [
+    {
+      "name" : "scalars",
+      "id" : 0,
+      "header_type" : "scalars_0",
+      "metadata" : true,
+      "pi_omit" : true
+    },
+    {
+      "name" : "standard_metadata",
+      "id" : 1,
+      "header_type" : "standard_metadata",
+      "metadata" : true,
+      "pi_omit" : true
+    },
+    {
+      "name" : "ethernet",
+      "id" : 2,
+      "header_type" : "ethernet_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "ipv4",
+      "id" : 3,
+      "header_type" : "ipv4_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "mpls",
+      "id" : 4,
+      "header_type" : "mpls_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "udp",
+      "id" : 5,
+      "header_type" : "udp_t",
+      "metadata" : false,
+      "pi_omit" : true
+    }
+  ],
+  "header_stacks" : [],
+  "header_union_types" : [],
+  "header_unions" : [],
+  "header_union_stacks" : [],
+  "field_lists" : [],
+  "errors" : [],
+  "enums" : [],
+  "parsers" : [
+    {
+      "name" : "parser",
+      "id" : 0,
+      "init_state" : "start",
+      "parse_states" : [
+        {
+          "name" : "parse_ethernet",
+          "id" : 0,
+          "parser_ops" : [
+            {
+              "parameters" : [
+                {
+                  "type" : "regular",
+                  "value" : "ethernet"
+                }
+              ],
+              "op" : "extract"
+            }
+          ],
+          "transitions" : [
+            {
+              "type" : "hexstr",
+              "value" : "0x0800",
+              "mask" : null,
+              "next_state" : "parse_ipv4"
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x8847",
+              "mask" : null,
+              "next_state" : "parse_mpls"
+            },
+            {
+              "value" : "default",
+              "mask" : null,
+              "next_state" : null
+            }
+          ],
+          "transition_key" : [
+            {
+              "type" : "field",
+              "value" : ["ethernet", "etherType"]
+            }
+          ]
+        },
+        {
+          "name" : "parse_ipv4",
+          "id" : 1,
+          "parser_ops" : [
+            {
+              "parameters" : [
+                {
+                  "type" : "regular",
+                  "value" : "ipv4"
+                }
+              ],
+              "op" : "extract"
+            }
+          ],
+          "transitions" : [
+            {
+              "type" : "hexstr",
+              "value" : "0x11",
+              "mask" : null,
+              "next_state" : "parse_udp"
+            },
+            {
+              "value" : "default",
+              "mask" : null,
+              "next_state" : null
+            }
+          ],
+          "transition_key" : [
+            {
+              "type" : "field",
+              "value" : ["ipv4", "protocol"]
+            }
+          ]
+        },
+        {
+          "name" : "parse_mpls",
+          "id" : 2,
+          "parser_ops" : [
+            {
+              "parameters" : [
+                {
+                  "type" : "regular",
+                  "value" : "mpls"
+                }
+              ],
+              "op" : "extract"
+            }
+          ],
+          "transitions" : [
+            {
+              "value" : "default",
+              "mask" : null,
+              "next_state" : "parse_ipv4"
+            }
+          ],
+          "transition_key" : []
+        },
+        {
+          "name" : "parse_udp",
+          "id" : 3,
+          "parser_ops" : [
+            {
+              "parameters" : [
+                {
+                  "type" : "regular",
+                  "value" : "udp"
+                }
+              ],
+              "op" : "extract"
+            }
+          ],
+          "transitions" : [
+            {
+              "value" : "default",
+              "mask" : null,
+              "next_state" : null
+            }
+          ],
+          "transition_key" : []
+        },
+        {
+          "name" : "start",
+          "id" : 4,
+          "parser_ops" : [],
+          "transitions" : [
+            {
+              "value" : "default",
+              "mask" : null,
+              "next_state" : "parse_ethernet"
+            }
+          ],
+          "transition_key" : []
+        }
+      ]
+    }
+  ],
+  "parse_vsets" : [],
+  "deparsers" : [
+    {
+      "name" : "deparser",
+      "id" : 0,
+      "order" : ["ethernet", "mpls", "ipv4", "udp"]
+    }
+  ],
+  "meter_arrays" : [],
+  "counter_arrays" : [],
+  "register_arrays" : [],
+  "calculations" : [],
+  "learn_lists" : [],
+  "actions" : [
+    {
+      "name" : "NoAction",
+      "id" : 0,
+      "runtime_data" : [],
+      "primitives" : []
+    },
+    {
+      "name" : "NoAction",
+      "id" : 1,
+      "runtime_data" : [],
+      "primitives" : []
+    },
+    {
+      "name" : "NoAction",
+      "id" : 2,
+      "runtime_data" : [],
+      "primitives" : []
+    },
+    {
+      "name" : "NoAction",
+      "id" : 3,
+      "runtime_data" : [],
+      "primitives" : []
+    },
+    {
+      "name" : "NoAction",
+      "id" : 4,
+      "runtime_data" : [],
+      "primitives" : []
+    },
+    {
+      "name" : "push_mpls",
+      "id" : 5,
+      "runtime_data" : [
+        {
+          "name" : "label",
+          "bitwidth" : 20
+        }
+      ],
+      "primitives" : [
+        {
+          "op" : "add_header",
+          "parameters" : [
+            {
+              "type" : "header",
+              "value" : "mpls"
+            }
+          ],
+          "source_info" : {
+            "filename" : "mpls.p4",
+            "line" : 96,
+            "column" : 4,
+            "source_fragment" : "add_header(mpls)"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["mpls", "label"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 0
+            }
+          ],
+          "source_info" : {
+            "filename" : "mpls.p4",
+            "line" : 95,
+            "column" : 17,
+            "source_fragment" : "label) { ..."
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["mpls", "tc"]
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x07"
+            }
+          ],
+          "source_info" : {
+            "filename" : "mpls.p4",
+            "line" : 98,
+            "column" : 4,
+            "source_fragment" : "modify_field(mpls.tc, 7)"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["mpls", "bos"]
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x01"
+            }
+          ],
+          "source_info" : {
+            "filename" : "mpls.p4",
+            "line" : 99,
+            "column" : 4,
+            "source_fragment" : "modify_field(mpls.bos, 0x1)"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["mpls", "ttl"]
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x20"
+            }
+          ],
+          "source_info" : {
+            "filename" : "mpls.p4",
+            "line" : 100,
+            "column" : 4,
+            "source_fragment" : "modify_field(mpls.ttl, 32)"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["ethernet", "etherType"]
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x8847"
+            }
+          ],
+          "source_info" : {
+            "filename" : "mpls.p4",
+            "line" : 101,
+            "column" : 4,
+            "source_fragment" : "modify_field(ethernet.etherType, 0x8847)"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "_drop",
+      "id" : 6,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "drop",
+          "parameters" : [],
+          "source_info" : {
+            "filename" : "mpls.p4",
+            "line" : 92,
+            "column" : 4,
+            "source_fragment" : "drop()"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "_drop",
+      "id" : 7,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "drop",
+          "parameters" : [],
+          "source_info" : {
+            "filename" : "mpls.p4",
+            "line" : 92,
+            "column" : 4,
+            "source_fragment" : "drop()"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "_drop",
+      "id" : 8,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "drop",
+          "parameters" : [],
+          "source_info" : {
+            "filename" : "mpls.p4",
+            "line" : 92,
+            "column" : 4,
+            "source_fragment" : "drop()"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "_drop",
+      "id" : 9,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "drop",
+          "parameters" : [],
+          "source_info" : {
+            "filename" : "mpls.p4",
+            "line" : 92,
+            "column" : 4,
+            "source_fragment" : "drop()"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "_drop",
+      "id" : 10,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "drop",
+          "parameters" : [],
+          "source_info" : {
+            "filename" : "mpls.p4",
+            "line" : 92,
+            "column" : 4,
+            "source_fragment" : "drop()"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "forward",
+      "id" : 11,
+      "runtime_data" : [
+        {
+          "name" : "intf",
+          "bitwidth" : 9
+        }
+      ],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["standard_metadata", "egress_spec"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 0
+            }
+          ],
+          "source_info" : {
+            "filename" : "mpls.p4",
+            "line" : 144,
+            "column" : 15,
+            "source_fragment" : "intf) { ..."
+          }
+        }
+      ]
+    },
+    {
+      "name" : "forward",
+      "id" : 12,
+      "runtime_data" : [
+        {
+          "name" : "intf",
+          "bitwidth" : 9
+        }
+      ],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["standard_metadata", "egress_spec"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 0
+            }
+          ],
+          "source_info" : {
+            "filename" : "mpls.p4",
+            "line" : 144,
+            "column" : 15,
+            "source_fragment" : "intf) { ..."
+          }
+        }
+      ]
+    },
+    {
+      "name" : "pop_mpls",
+      "id" : 13,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "remove_header",
+          "parameters" : [
+            {
+              "type" : "header",
+              "value" : "mpls"
+            }
+          ],
+          "source_info" : {
+            "filename" : "mpls.p4",
+            "line" : 105,
+            "column" : 4,
+            "source_fragment" : "remove_header(mpls)"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["ethernet", "etherType"]
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x0800"
+            }
+          ],
+          "source_info" : {
+            "filename" : "mpls.p4",
+            "line" : 106,
+            "column" : 4,
+            "source_fragment" : "modify_field(ethernet.etherType, 0x0800)"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "swap_mpls",
+      "id" : 14,
+      "runtime_data" : [
+        {
+          "name" : "label",
+          "bitwidth" : 20
+        }
+      ],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["mpls", "label"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 0
+            }
+          ],
+          "source_info" : {
+            "filename" : "mpls.p4",
+            "line" : 109,
+            "column" : 17,
+            "source_fragment" : "label) { ..."
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["mpls", "ttl"]
+            },
+            {
+              "type" : "expression",
+              "value" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "&",
+                  "left" : {
+                    "type" : "expression",
+                    "value" : {
+                      "op" : "+",
+                      "left" : {
+                        "type" : "field",
+                        "value" : ["mpls", "ttl"]
+                      },
+                      "right" : {
+                        "type" : "hexstr",
+                        "value" : "0xff"
+                      }
+                    }
+                  },
+                  "right" : {
+                    "type" : "hexstr",
+                    "value" : "0xff"
+                  }
+                }
+              }
+            }
+          ],
+          "source_info" : {
+            "filename" : "mpls.p4",
+            "line" : 111,
+            "column" : 3,
+            "source_fragment" : "subtract_from_field(mpls.ttl, 1)"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "rewrite_macs",
+      "id" : 15,
+      "runtime_data" : [
+        {
+          "name" : "srcMac",
+          "bitwidth" : 48
+        },
+        {
+          "name" : "dstMac",
+          "bitwidth" : 48
+        }
+      ],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["ethernet", "srcAddr"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 0
+            }
+          ],
+          "source_info" : {
+            "filename" : "mpls.p4",
+            "line" : 178,
+            "column" : 20,
+            "source_fragment" : "srcMac, dstMac) { ..."
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["ethernet", "dstAddr"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 1
+            }
+          ],
+          "source_info" : {
+            "filename" : "mpls.p4",
+            "line" : 178,
+            "column" : 28,
+            "source_fragment" : "dstMac) { ..."
+          }
+        }
+      ]
+    }
+  ],
+  "pipelines" : [
+    {
+      "name" : "ingress",
+      "id" : 0,
+      "init_table" : "fec_table",
+      "tables" : [
+        {
+          "name" : "fec_table",
+          "id" : 0,
+          "source_info" : {
+            "filename" : "mpls.p4",
+            "line" : 114,
+            "column" : 0,
+            "source_fragment" : "table fec_table { ..."
+          },
+          "key" : [
+            {
+              "match_type" : "lpm",
+              "name" : "ipv4.dstAddr",
+              "target" : ["ipv4", "dstAddr"],
+              "mask" : null
+            }
+          ],
+          "match_type" : "lpm",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [5, 6, 0],
+          "actions" : ["push_mpls", "_drop", "NoAction"],
+          "base_default_next" : "mpls_table",
+          "next_tables" : {
+            "push_mpls" : "mpls_table",
+            "_drop" : "mpls_table",
+            "NoAction" : "mpls_table"
+          },
+          "default_entry" : {
+            "action_id" : 0,
+            "action_const" : false,
+            "action_data" : [],
+            "action_entry_const" : false
+          }
+        },
+        {
+          "name" : "mpls_table",
+          "id" : 1,
+          "source_info" : {
+            "filename" : "mpls.p4",
+            "line" : 128,
+            "column" : 0,
+            "source_fragment" : "table mpls_table { ..."
+          },
+          "key" : [
+            {
+              "match_type" : "exact",
+              "name" : "standard_metadata.ingress_port",
+              "target" : ["standard_metadata", "ingress_port"],
+              "mask" : null
+            },
+            {
+              "match_type" : "exact",
+              "name" : "mpls.label",
+              "target" : ["mpls", "label"],
+              "mask" : null
+            }
+          ],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [13, 14, 8, 2],
+          "actions" : ["pop_mpls", "swap_mpls", "_drop", "NoAction"],
+          "base_default_next" : "mplslookup_table",
+          "next_tables" : {
+            "pop_mpls" : "mplslookup_table",
+            "swap_mpls" : "mplslookup_table",
+            "_drop" : "mplslookup_table",
+            "NoAction" : "mplslookup_table"
+          },
+          "default_entry" : {
+            "action_id" : 2,
+            "action_const" : false,
+            "action_data" : [],
+            "action_entry_const" : false
+          }
+        },
+        {
+          "name" : "mplslookup_table",
+          "id" : 2,
+          "source_info" : {
+            "filename" : "mpls.p4",
+            "line" : 148,
+            "column" : 0,
+            "source_fragment" : "table mplslookup_table { ..."
+          },
+          "key" : [
+            {
+              "match_type" : "exact",
+              "name" : "mpls.label",
+              "target" : ["mpls", "label"],
+              "mask" : null
+            }
+          ],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [12, 9, 3],
+          "actions" : ["forward", "_drop", "NoAction"],
+          "base_default_next" : "node_5",
+          "next_tables" : {
+            "forward" : "node_5",
+            "_drop" : "node_5",
+            "NoAction" : "node_5"
+          },
+          "default_entry" : {
+            "action_id" : 3,
+            "action_const" : false,
+            "action_data" : [],
+            "action_entry_const" : false
+          }
+        },
+        {
+          "name" : "iplookup_table",
+          "id" : 3,
+          "source_info" : {
+            "filename" : "mpls.p4",
+            "line" : 163,
+            "column" : 0,
+            "source_fragment" : "table iplookup_table { ..."
+          },
+          "key" : [
+            {
+              "match_type" : "exact",
+              "name" : "ipv4.dstAddr",
+              "target" : ["ipv4", "dstAddr"],
+              "mask" : null
+            }
+          ],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [11, 7, 1],
+          "actions" : ["forward", "_drop", "NoAction"],
+          "base_default_next" : "switching_table",
+          "next_tables" : {
+            "forward" : "switching_table",
+            "_drop" : "switching_table",
+            "NoAction" : "switching_table"
+          },
+          "default_entry" : {
+            "action_id" : 1,
+            "action_const" : false,
+            "action_data" : [],
+            "action_entry_const" : false
+          }
+        },
+        {
+          "name" : "switching_table",
+          "id" : 4,
+          "source_info" : {
+            "filename" : "mpls.p4",
+            "line" : 183,
+            "column" : 0,
+            "source_fragment" : "table switching_table { ..."
+          },
+          "key" : [
+            {
+              "match_type" : "exact",
+              "name" : "standard_metadata.egress_spec",
+              "target" : ["standard_metadata", "egress_spec"],
+              "mask" : null
+            }
+          ],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [15, 10, 4],
+          "actions" : ["rewrite_macs", "_drop", "NoAction"],
+          "base_default_next" : null,
+          "next_tables" : {
+            "rewrite_macs" : null,
+            "_drop" : null,
+            "NoAction" : null
+          },
+          "default_entry" : {
+            "action_id" : 4,
+            "action_const" : false,
+            "action_data" : [],
+            "action_entry_const" : false
+          }
+        }
+      ],
+      "action_profiles" : [],
+      "conditionals" : [
+        {
+          "name" : "node_5",
+          "id" : 0,
+          "source_info" : {
+            "filename" : "mpls.p4",
+            "line" : 202,
+            "column" : 38,
+            "source_fragment" : "=="
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "==",
+              "left" : {
+                "type" : "field",
+                "value" : ["standard_metadata", "egress_spec"]
+              },
+              "right" : {
+                "type" : "hexstr",
+                "value" : "0x0000"
+              }
+            }
+          },
+          "true_next" : "iplookup_table",
+          "false_next" : "switching_table"
+        }
+      ]
+    },
+    {
+      "name" : "egress",
+      "id" : 1,
+      "init_table" : null,
+      "tables" : [],
+      "action_profiles" : [],
+      "conditionals" : []
+    }
+  ],
+  "checksums" : [],
+  "force_arith" : [],
+  "extern_instances" : [],
+  "field_aliases" : [],
+  "program" : "./mpls.p4i",
+  "__meta__" : {
+    "version" : [2, 18],
+    "compiler" : "https://github.com/p4lang/p4c"
+  }
+}

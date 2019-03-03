@@ -1,0 +1,9 @@
+table_add mpls_table swap_mpls 1 10 => 20
+table_add mpls_table swap_mpls 2 20 => 10
+
+table_add mplslookup_table forward 20 => 2
+table_add mplslookup_table forward 10 => 1
+
+table_add switching_table rewrite_macs 1 => 00:00:00:00:02:01 00:00:00:00:01:02
+table_add switching_table rewrite_macs 2 => 00:00:00:00:02:02 00:00:00:00:03:02
+
