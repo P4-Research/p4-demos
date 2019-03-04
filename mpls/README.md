@@ -34,7 +34,7 @@ If you want to test the demo in practice check the mpls.p4 program out and repro
 ### Network topology ###
 
 <p align="center">
-  <img src="images/mpls.png" />
+  <img src="images/mpls-network.png" />
 </p>
 
 ### User guide ###
