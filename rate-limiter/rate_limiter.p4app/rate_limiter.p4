@@ -4,8 +4,10 @@
 #include "header.p4"
 #include "parser.p4"
 
-#define BUCKET_SIZE 1000
-#define GENERATION_RATE 10
+//BUCKET_SIZE is a number of packets passed in a time window that has WINDOW_SIZE size
+#define BUCKET_SIZE 10
+//WINDOW_SIZE is in microseconds
+#define WINDOW_SIZE 100
 
 control egress(inout headers hdr, inout metadata meta, inout standard_metadata_t standard_metadata) {
     action rewrite_mac(bit<48> smac) {
@@ -80,20 +82,14 @@ control ingress(inout headers hdr, inout metadata meta, inout standard_metadata_
         timestamp_r.read(last_ts, 0);
 
         bit<48> time_diff;
-        time_diff = standard_metadata.ingress_global_timestamp - last_ts;
+        time_diff = standard_metadata.ingress_global_timestamp - last_ts;//All timestamps are in microseconds
 
-        if (time_diff > 10 * 1000000) {
+        if (time_diff > WINDOW_SIZE * 1000) {
             count_r.write(0, 0);
-            //if (((bit<48>)BUCKET_SIZE) < ((bit<48>)last_count) + (GENERATION_RATE) * (time_diff)) {
-            //    count_r.write(0, BUCKET_SIZE);
-            //} else {
-            //    count_r.write(0, (bit<32>)(((bit<48>)last_count) + ((bit<48>)GENERATION_RATE) * ((bit<48>)time_diff));
-            //}
             timestamp_r.write(0, standard_metadata.ingress_global_timestamp);
         }
 
-        if (last_count <= BUCKET_SIZE) {
-            //count_r.write(0, last_count + standard_metadata.packet_length);
+        if (last_count < BUCKET_SIZE) {
             count_r.write(0, last_count + 1);
         } else {
             mark_to_drop(standard_metadata);
