@@ -1,106 +1,8 @@
 #include <core.p4>
 #include <v1model.p4>
 
-enum bit<8> State { SYNSENT = 1, SYNACKED = 2, ESTABLISHED = 3 }
-
-typedef bit<48>  EthernetAddress;
-
-header ethernet_t {
-    EthernetAddress dstAddr;
-    EthernetAddress srcAddr;
-    bit<16>         etherType;
-}
-
-header ipv4_t {
-    bit<4>  version;
-    bit<4>  ihl;
-    bit<8>  diffserv;
-    bit<16> totalLen;
-    bit<16> identification;
-    bit<3>  flags;
-    bit<13> fragOffset;
-    bit<8>  ttl;
-    bit<8>  protocol;
-    bit<16> hdrChecksum;
-    bit<32> srcAddr;
-    bit<32> dstAddr;
-}
-
-header tcp_t {
-    bit<16> srcPort;
-    bit<16> dstPort;
-    bit<32> seqNo;
-    bit<32> ackNo;
-    bit<4>  dataOffset;
-    bit<3>  res;
-    bit<3>  ecn;
-    //bit<6>  ctrl;
-    bit<1> urgent;
-    bit<1> ack;
-    bit<1> psh;
-    bit<1> rst;
-    bit<1> syn;
-    bit<1> fin;
-    bit<16> window;
-    bit<16> checksum;
-    bit<16> urgentPtr;
-}
-
-struct headers_t {
-    ethernet_t       ethernet;
-    ipv4_t           ipv4;
-    tcp_t            tcp;
-}
-
-typedef bit<32> saddr;
-typedef bit<32> daddr;
-typedef bit<32> srcport;
-typedef bit<32> dstport;
-
-typedef bit<9> egressSpec_t;
-
-struct ConnectionInfo_t {
-    bit<8> s;
-    bit<32> srv_addr;
-}
-
-struct ConnectionId_t {
-    bit<32> saddr;
-    bit<32> daddr;
-    bit<16> srcport;
-    bit<16> dstport;
-}
-
-struct metadata_t {
-    ConnectionInfo_t connInfo;
-    bit<32> conn_id;
-}
-
-
-parser ParserImpl(packet_in packet,
-                  out headers_t hdr,
-                  inout metadata_t meta,
-                  inout standard_metadata_t stdmeta)
-{
-    state start {
-        transition parse_ethernet;
-    }
-    state parse_ethernet {
-        packet.extract(hdr.ethernet);
-        transition select(hdr.ethernet.etherType) {
-            0x0800: parse_ipv4;
-            default: accept;
-        }
-    }
-    state parse_ipv4 {
-        packet.extract(hdr.ipv4);
-        transition parse_tcp;
-    }
-    state parse_tcp {
-        packet.extract(hdr.tcp);
-        transition accept;
-    }
-}
+#include "header.p4"
+#include "parser.p4"
 
 control ingress(inout headers_t hdr,
                 inout metadata_t meta,
@@ -118,31 +20,51 @@ control ingress(inout headers_t hdr,
         conn_srv_addr.write(meta.conn_id, addr);
     }
 
-    action drop() {
+    action _drop() {
         mark_to_drop(stdmeta);
     }
 
-    action forward(bit<48> dmac, egressSpec_t intf) {
-        hdr.ethernet.dstAddr = dmac;
-        stdmeta.egress_spec = intf;
-        hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
+    action set_nhop(bit<32> nhop_ipv4, bit<9> port) {
+        meta.ingress_metadata.nhop_ipv4 = nhop_ipv4;
+        stdmeta.egress_spec = port;
+        hdr.ipv4.ttl = hdr.ipv4.ttl + 8w255;
     }
-
-    table ipv4_da_lpm {
+    action set_dmac(bit<48> dmac) {
+        hdr.ethernet.dstAddr = dmac;
+    }
+    table ipv4_lpm {
+        actions = {
+            _drop;
+            set_nhop;
+            NoAction;
+        }
         key = {
             hdr.ipv4.dstAddr: lpm;
         }
+        size = 1024;
+        default_action = NoAction();
+    }
+    table forward {
         actions = {
-            forward;
-            drop;
+            set_dmac;
+            _drop;
+            NoAction;
         }
+        key = {
+            meta.ingress_metadata.nhop_ipv4: exact;
+        }
+        size = 512;
+        default_action = NoAction();
     }
 
-
     apply {
-        if (hdr.ipv4.isValid()) {
+        if (hdr.tcp.isValid()) {
             @atomic {
-                hash(meta.conn_id, HashAlgorithm.crc16, (bit<13>)0, { hdr.ipv4.srcAddr, hdr.ipv4.dstAddr, hdr.ipv4.protocol, hdr.tcp.srcPort, hdr.tcp.dstPort }, (bit<32>)65536);
+                if (hdr.ipv4.srcAddr < hdr.ipv4.dstAddr) {
+                    hash(meta.conn_id, HashAlgorithm.crc16, (bit<13>)0, { hdr.ipv4.srcAddr, hdr.ipv4.dstAddr, hdr.ipv4.protocol, hdr.tcp.srcPort, hdr.tcp.dstPort }, (bit<32>)65536);
+                } else {
+                    hash(meta.conn_id, HashAlgorithm.crc16, (bit<13>)0, { hdr.ipv4.dstAddr, hdr.ipv4.srcAddr, hdr.ipv4.protocol, hdr.tcp.dstPort, hdr.tcp.srcPort }, (bit<32>)65536);
+                }
                 conn_state.read(meta.connInfo.s, meta.conn_id);
                 conn_srv_addr.read(meta.connInfo.srv_addr, meta.conn_id);
                 if (meta.connInfo.s == 0 || meta.connInfo.srv_addr == 0) {
@@ -156,9 +78,9 @@ control ingress(inout headers_t hdr,
                             // It's a SYN-ACK
                             update_conn_state((bit<8>) State.SYNACKED);
                         }
-                        drop();
                     } else if (meta.connInfo.s == (bit<8>) State.SYNACKED) {
-                        drop();
+                        _drop();
+                        return;
                     } else if (meta.connInfo.s == (bit<8>) State.ESTABLISHED) {
                         if (hdr.tcp.fin == 1 && hdr.tcp.ack == 1) {
                             update_conn_info(0, 0); // clear register entry
@@ -166,7 +88,8 @@ control ingress(inout headers_t hdr,
                     }
                 } else {
                     if (meta.connInfo.s == (bit<8>) State.SYNSENT) {
-                        drop();
+                        _drop();
+                        return;
                     } else if (meta.connInfo.s == (bit<8>) State.SYNACKED) {
                         if (hdr.tcp.syn == 0 && hdr.tcp.ack == 1) {
                             // It's a ACK
@@ -179,72 +102,38 @@ control ingress(inout headers_t hdr,
                     }
                 }
             }
-            ipv4_da_lpm.apply();
+        }
+        if (hdr.ipv4.isValid()) {
+            ipv4_lpm.apply();
+            forward.apply();
         }
     }
 
 }
 
-control egress(inout headers_t hdr,
-               inout metadata_t meta,
-               inout standard_metadata_t stdmeta) {
-
-    action my_drop() {
-        mark_to_drop(stdmeta);
-    }
+control egress(inout headers_t hdr, inout metadata_t meta, inout standard_metadata_t standard_metadata) {
     action rewrite_mac(bit<48> smac) {
         hdr.ethernet.srcAddr = smac;
     }
+    action _drop() {
+        mark_to_drop(standard_metadata);
+    }
     table send_frame {
-        key = {
-            stdmeta.egress_port: exact;
-        }
         actions = {
-            NoAction;
             rewrite_mac;
-            my_drop;
+            _drop;
+            NoAction;
         }
+        key = {
+            standard_metadata.egress_port: exact;
+        }
+        size = 256;
         default_action = NoAction();
     }
-
     apply {
-        send_frame.apply();
-    }
-
-}
-
-control DeparserImpl(packet_out packet,
-                           in headers_t hdr)
-{
-    apply {
-        packet.emit(hdr.ethernet);
-        packet.emit(hdr.ipv4);
-    }
-}
-
-
-control updateChecksum(inout headers_t hdr, inout metadata_t meta) {
-    apply {
-        update_checksum(
-	    hdr.ipv4.isValid(),
-            { hdr.ipv4.version,
-	      hdr.ipv4.ihl,
-              hdr.ipv4.diffserv,
-              hdr.ipv4.totalLen,
-              hdr.ipv4.identification,
-              hdr.ipv4.flags,
-              hdr.ipv4.fragOffset,
-              hdr.ipv4.ttl,
-              hdr.ipv4.protocol,
-              hdr.ipv4.srcAddr,
-              hdr.ipv4.dstAddr },
-            hdr.ipv4.hdrChecksum,
-            HashAlgorithm.csum16);
-    }
-}
-
-control verifyChecksum(inout headers_t hdr, inout metadata_t meta) {
-    apply {
+        if (hdr.ipv4.isValid()) {
+          send_frame.apply();
+        }
     }
 }
 
