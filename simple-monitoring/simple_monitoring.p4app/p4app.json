@@ -1,0 +1,19 @@
+{
+  "program": "simple_monitoring.p4",
+  "language": "p4-16",
+  "targets": {
+      "multiswitch": {
+      "controller_module": "mycontroller",
+      "auto-control-plane": true,
+      "links": [["h1", "s1"], ["s1", "h2"]],
+      "hosts": {
+        "h1": {
+            "cmd": "ping h2 -w 10",
+            "startup_sleep": 1,
+            "wait": true
+        },
+        "h2": {}
+      }
+    }
+  }
+}
