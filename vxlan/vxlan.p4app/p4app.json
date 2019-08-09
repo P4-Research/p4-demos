@@ -2,17 +2,45 @@
   "program": "vxlan.p4",
   "language": "p4-16",
   "targets": {
-      "multiswitch": {
-//      "controller_module": "mycontroller",
-//      "auto-control-plane": true,
-      "links": [["h1", "s1"], ["s1", "s2"], ["s2", "h2"]],
+    "multiswitch": {
+      "bmv2_log": true,
+      "pcap_dump": true,
+      "controller_module": "mycontroller",
+      "auto-control-plane": true,
+      "cli": true,
+      "links": [
+        [
+          "h1",
+          "s1"
+        ],
+        [
+          "s1",
+          "s2"
+        ],
+        [
+          "s2",
+          "h2"
+        ]
+      ],
       "hosts": {
         "h1": {
-            "cmd": "ping h2 -w 10",
-            "startup_sleep": 1,
-            "wait": true
+
         },
-        "h2": {}
+        "h2": {
+
+        }
+      },
+      "switches": {
+        "s1": {
+          "commands": "s1.config"
+        },
+        "s2": {
+          "commands": "s2.config"
+        }
+      },
+      "parameters": {
+        "port": 8000,
+        "echo_msg": "foobar"
       }
     }
   }

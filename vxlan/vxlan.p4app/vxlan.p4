@@ -4,45 +4,27 @@
 #include "header.p4"
 #include "parser.p4"
 
-control egress(inout headers hdr, inout metadata meta, inout standard_metadata_t standard_metadata) {
-    action rewrite_mac(bit<48> smac) {
-        hdr.ethernet.srcAddr = smac;
-    }
-    action _drop() {
-        mark_to_drop(standard_metadata);
-    }
-    table send_frame {
-        actions = {
-            rewrite_mac;
-            _drop;
-            NoAction;
-        }
-        key = {
-            standard_metadata.egress_port: exact;
-        }
-        size = 256;
-        default_action = NoAction();
-    }
-    apply {
-        if (hdr.ipv4.isValid()) {
-          send_frame.apply();
-        }
-    }
-}
+#define ETH_HDR_SIZE 14
+#define IPV4_HDR_SIZE 20
+#define UDP_HDR_SIZE 8
+#define VXLAN_HDR_SIZE 8
+#define IP_VERSION_4 4
+#define IPV4_MIN_IHL 5
 
-control vxlan_ingress(inout headers hdr, inout metadata meta, inout standard_metadata_t standard_metadata) {
+control vxlan_ingress_upstream(inout headers hdr, inout metadata meta, inout standard_metadata_t standard_metadata) {
 
     action vxlan_decap() {
         // as simple as set outer headers as invalid
+        hdr.ethernet.setInvalid();
         hdr.ipv4.setInvalid();
         hdr.udp.setInvalid();
         hdr.vxlan.setInvalid();
     }
 
-    table ingress_tbl {
+    table t_vxlan_term {
         key = {
-            // Virtual IP address of VXLAN tunnel termination endpoint
-            hdr.ipv4.dstAddr : exact;
+            // Inner Ethernet desintation MAC address of target VM
+            hdr.inner_ethernet.dstAddr : exact;
         }
 
         actions = {
@@ -52,91 +34,205 @@ control vxlan_ingress(inout headers hdr, inout metadata meta, inout standard_met
 
     }
 
+    action forward(bit<9> port) {
+        standard_metadata.egress_spec = port;
+    }
 
+    table t_forward_l2 {
+        key = {
+            hdr.inner_ethernet.dstAddr : exact;
+        }
+
+        actions = {
+            forward;
+        }
+    }
 
     apply {
         if (hdr.ipv4.isValid()) {
-            ingress_tbl.apply();
+            if (t_vxlan_term.apply().hit) {
+                t_forward_l2.apply();
+            }
         }
     }
 }
 
-control vxlan_egress(inout headers hdr, inout metadata meta, inout standard_metadata_t standard_metadata) {
-    action vxlan_encap() {
-        hdr.ipv4.setValid();
-        hdr.ipv4.version = IP_VERSION_4;
-        hdr.ipv4.ihl = IPV4_MIN_IHL;
-        hdr.ipv4.dscp = 0;
-        hdr.ipv4.ecn = 0;
-        hdr.ipv4.total_len = inner_ipv4.total_len
-                            + (IPV4_HDR_SIZE + UDP_HDR_SIZE + GTP_HDR_SIZE);
-        hdr.ipv4.identification = 0x1513; /* From NGIC */
-        hdr.ipv4.flags = 0;
+control vxlan_egress_upstream(inout headers hdr, inout metadata meta, inout standard_metadata_t standard_metadata) {
+
+    apply {
 
     }
 
-    table egress_tbl {
+}
+
+control vxlan_ingress_downstream(inout headers hdr, inout metadata meta, inout standard_metadata_t standard_metadata) {
+
+    action set_vni(bit<24> vni) {
+        meta.vxlan_vni = vni;
+    }
+
+    action set_ipv4_nexthop(bit<32> nexthop) {
+        meta.nexthop = nexthop;
+    }
+
+    table t_vxlan_segment {
+
         key = {
-            // Virtual IP address of VXLAN tunnel termination endpoint
-            hdr.ipv4.dstAddr : exact;
+            hdr.ipv4.dstAddr : lpm;
         }
+
         actions = {
             @defaultonly NoAction;
-            vxlan_encap;
+            set_vni;
+        }
+
+    }
+
+    table t_vxlan_nexthop {
+
+        key = {
+            hdr.ethernet.dstAddr : exact;
+        }
+
+        actions = {
+            set_ipv4_nexthop;
+        }
+    }
+
+    action set_vtep_ip(bit<32> vtep_ip) {
+        meta.vtepIP = vtep_ip;
+    }
+
+    table t_vtep {
+        key = {
+            hdr.ethernet.srcAddr : exact;
+        }
+
+        actions = {
+            set_vtep_ip;
+        }
+
+    }
+
+    action route(bit<9> port) {
+        standard_metadata.egress_spec = port;
+    }
+
+    table t_vxlan_routing {
+
+        key = {
+            meta.nexthop : exact;
+        }
+
+        actions = {
+            route;
+        }
+    }
+
+    apply {
+        if (hdr.ipv4.isValid()) {
+            t_vtep.apply();
+            if(t_vxlan_segment.apply().hit) {
+                if(t_vxlan_nexthop.apply().hit) {
+                    t_vxlan_routing.apply();
+                }
+            }
         }
     }
 
 }
 
+control vxlan_egress_downstream(inout headers hdr, inout metadata meta, inout standard_metadata_t standard_metadata) {
 
-
-control ingress(inout headers hdr, inout metadata meta, inout standard_metadata_t standard_metadata) {
-
-    action _drop() {
-        mark_to_drop(standard_metadata);
-    }
-    action set_nhop(bit<32> nhop_ipv4, bit<9> port) {
-        meta.ingress_metadata.nhop_ipv4 = nhop_ipv4;
-        standard_metadata.egress_spec = port;
-        hdr.ipv4.ttl = hdr.ipv4.ttl + 8w255;
-    }
-    action set_dmac(bit<48> dmac) {
+    action rewrite_macs(bit<48> smac, bit<48> dmac) {
+        hdr.ethernet.srcAddr = smac;
         hdr.ethernet.dstAddr = dmac;
     }
 
-    table ipv4_lpm {
-        actions = {
-            _drop;
-            set_nhop;
-            NoAction;
-        }
-        key = {
-            hdr.ipv4.dstAddr: lpm;
-        }
-        size = 1024;
-        default_action = NoAction();
-    }
+    table t_send_frame {
 
-    table forward {
-        actions = {
-            set_dmac;
-            _drop;
-            NoAction;
+            key = {
+                hdr.ipv4.dstAddr : exact;
+            }
+
+            actions = {
+                rewrite_macs;
+            }
         }
-        key = {
-            meta.ingress_metadata.nhop_ipv4: exact;
-        }
-        size = 512;
-        default_action = NoAction();
+
+    action vxlan_encap() {
+
+        hdr.inner_ethernet = hdr.ethernet;
+        hdr.inner_ipv4 = hdr.ipv4;
+
+        hdr.ethernet.setValid();
+
+        hdr.ipv4.setValid();
+        hdr.ipv4.version = IP_VERSION_4;
+        hdr.ipv4.ihl = IPV4_MIN_IHL;
+        hdr.ipv4.diffserv = 0;
+        hdr.ipv4.totalLen = hdr.ipv4.totalLen
+                            + (ETH_HDR_SIZE + IPV4_HDR_SIZE + UDP_HDR_SIZE + VXLAN_HDR_SIZE);
+        hdr.ipv4.identification = 0x1513; /* From NGIC */
+        hdr.ipv4.flags = 0;
+        hdr.ipv4.fragOffset = 0;
+        hdr.ipv4.ttl = 64;
+        hdr.ipv4.protocol = UDP_PROTO;
+        hdr.ipv4.dstAddr = meta.nexthop;
+        hdr.ipv4.srcAddr = meta.vtepIP;
+        hdr.ipv4.hdrChecksum = 0;
+
+        hdr.udp.setValid();
+        // The VTEP calculates the source port by performing the hash of the inner Ethernet frame's header.
+        hash(hdr.udp.srcPort, HashAlgorithm.crc16, (bit<13>)0, { hdr.ethernet }, (bit<32>)65536);
+        hdr.udp.dstPort = UDP_PORT_VXLAN;
+        hdr.udp.length = hdr.ipv4.totalLen + (UDP_HDR_SIZE + VXLAN_HDR_SIZE);
+        hdr.udp.checksum = 0;
+
+        hdr.vxlan.setValid();
+        hdr.vxlan.reserved = 0;
+        hdr.vxlan.reserved_2 = 0;
+        hdr.vxlan.flags = 0;
+        hdr.vxlan.vni = meta.vxlan_vni;
+
     }
 
     apply {
-        if (hdr.ipv4.isValid()) {
-            vxlan.apply();
-            ipv4_lpm.apply();
-            forward.apply();
+        if (meta.vxlan_vni != 0) {
+            vxlan_encap();
+            if (hdr.vxlan.isValid()) {
+                t_send_frame.apply();
+            }
+        }
+    }
+
+}
+
+control vxlan_egress(inout headers hdr, inout metadata meta, inout standard_metadata_t standard_metadata) {
+
+    vxlan_egress_downstream()  downstream;
+
+    apply {
+        if (!hdr.vxlan.isValid()) {
+            downstream.apply(hdr, meta, standard_metadata);
         }
     }
 }
 
-V1Switch(ParserImpl(), verifyChecksum(), ingress(), egress(), computeChecksum(), DeparserImpl()) main;
+
+
+control vxlan_ingress(inout headers hdr, inout metadata meta, inout standard_metadata_t standard_metadata) {
+
+    vxlan_ingress_downstream()  downstream;
+    vxlan_ingress_upstream()    upstream;
+
+    apply {
+        if (hdr.vxlan.isValid()) {
+            upstream.apply(hdr, meta, standard_metadata);
+        } else {
+            downstream.apply(hdr, meta, standard_metadata);
+        }
+    }
+}
+
+V1Switch(ParserImpl(), verifyChecksum(), vxlan_ingress(), vxlan_egress(), computeChecksum(), DeparserImpl()) main;

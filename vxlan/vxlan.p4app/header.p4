@@ -46,3 +46,9 @@ struct headers {
     ethernet_t inner_ethernet;
     ipv4_t     inner_ipv4;
 }
+
+struct metadata {
+    bit<24> vxlan_vni;
+    bit<32> nexthop;
+    bit<32> vtepIP;
+}
