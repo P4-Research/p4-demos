@@ -184,7 +184,7 @@ control vxlan_egress_downstream(inout headers hdr, inout metadata meta, inout st
 
         hdr.udp.setValid();
         // The VTEP calculates the source port by performing the hash of the inner Ethernet frame's header.
-        hash(hdr.udp.srcPort, HashAlgorithm.crc16, (bit<13>)0, { hdr.ethernet }, (bit<32>)65536);
+        hash(hdr.udp.srcPort, HashAlgorithm.crc16, (bit<13>)0, { hdr.inner_ethernet }, (bit<32>)65536);
         hdr.udp.dstPort = UDP_PORT_VXLAN;
         hdr.udp.length = hdr.ipv4.totalLen + (UDP_HDR_SIZE + VXLAN_HDR_SIZE);
         hdr.udp.checksum = 0;
